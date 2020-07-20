@@ -109,9 +109,10 @@ class Node:
         self.start_time = time.time()
         firstTime = True
         while(True):
-            if time.time() - start > 300:
+            if time.time() - start > 60:
                 for neighbor in self.bidirectionalNeighbors:
                     neighborInAllNeighbors = self.allNeighbors[self.findInList(self.allNeighbors, neighbor.host.port)]
+                    print("WTF")
                     neighborInAllNeighbors.updateAvailableTime()
                 break
             #   is Node off ###########################################
@@ -184,6 +185,11 @@ class Node:
                             else:
                                 if neighborInAllNeighbors.timeBecameBi == 0:
                                     neighborInAllNeighbors.timeBecameBi = time.time()
+
+                        elif self.inList(self.requested, receivedPort):
+                            self.requested, self.bidirectionalNeighbors = self.moveFromTo(self.requested, self.bidirectionalNeighbors, receivedPort)
+                            neighborInAllNeighbors = self.allNeighbors[self.findInList(self.allNeighbors, receivedPort)]
+                            neighborInAllNeighbors.timeBecameBi = time.time()
                         
                         else:
                             newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
@@ -194,7 +200,7 @@ class Node:
                             if not self.inList(self.allNeighbors, receivedPort):
                                 self.allNeighbors.append(newNeighbor)
 
-                        # print(received)
+                        print(received)
             except BlockingIOError:
                 pass
             
@@ -324,7 +330,7 @@ def initialize():
     for host in hosts:
         nodes.append(Node(host, counter))
         counter += 1
-    while time.time() - start < 300:
+    while time.time() - start < 61:
         continue
 
 initialize()
