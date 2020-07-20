@@ -219,9 +219,10 @@ class Node:
                     tempNeighbor = NeighborsInformation(hosts[rand])
                     if not self.inList(self.allNeighbors, hosts[rand].port):
                         self.allNeighbors.append(tempNeighbor)
-                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, tempNeighbor.timeOfLastReceivedHello)
-                    self.udpSocket.sendTo(message.toJson(), tempNeighbor.host)
-                    self.allNeighbors[self.findInList(self.allNeighbors, tempNeighbor.host.port)].packetsWereSentToThisNeighbor += 1
+                    # message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, tempNeighbor.timeOfLastReceivedHello)
+                    # self.udpSocket.sendTo(message.toJson(), tempNeighbor.host)
+                    # self.allNeighbors[self.findInList(self.allNeighbors, tempNeighbor.host.port)].packetsWereSentToThisNeighbor += 1
+                    self.requested.append(tempNeighbor)
 
                 #   ali be request ha ham ersal mikonim dge??
                 #   send Hello to unidirectional neighbors
