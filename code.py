@@ -37,7 +37,6 @@ class NeighborsInformation:
         self.timeBecameBi = 0
         self.allTheTimeNeighborWasAvailable = 0
         self.bidirectionalNeighbors = []
-        self.unidirectionalNeighbors = []
     def show(self):
         self.host.show()
         if timeOfLastReceivedHello == 0:
@@ -77,7 +76,7 @@ class UdpSocket:
         self.socket.sendto(message.encode(), (dest.IP, int(dest.port)))
 
 class HelloMessage:
-    def __init__(self, sender, IP, port, bidirectionalNeighbors, unidirectionalNeighbors, lastPacketReceiverSentToSender):
+    def __init__(self, sender, IP, port, bidirectionalNeighbors, lastPacketReceiverSentToSender):
         self.sender = sender
         self.IP = IP
         self.port = port
@@ -85,24 +84,18 @@ class HelloMessage:
         self.bidirectionalNeighbors = []
         for i in bidirectionalNeighbors:
             self.bidirectionalNeighbors.append(i.host.port)
-        # self.bidirectionalNeighbors = bidirectionalNeighbors
-        # self.unidirectionalNeighbors = unidirectionalNeighbors
-        self.unidirectionalNeighbors = []
-        for i in unidirectionalNeighbors:
-            self.unidirectionalNeighbors.append(i.host.port)
-        # self.lastPacketSenderSent = lastPacketSenderSent
         self.lastPacketReceiverSentToSender = lastPacketReceiverSentToSender
     def toJson(self):
-        message = "{ \"IP\":" + "\"" + self.IP + "\"" + ', "port":' + "\"" + self.port + "\"" + ', "type":"HELLO_MSG"' + ', "bidirectionalNeighbors":' +  "\"" + str(self.bidirectionalNeighbors) +  "\"" + ', "unidirectionalNeighbors":' +  "\"" + str(self.unidirectionalNeighbors) +  "\"" + ', "lastPacketSenderSentToReceiver":' + "\"" + str(time.time()) + "\"" + ', "lastPacketReceiverSentToSender":' + "\"" + str(self.lastPacketReceiverSentToSender) + "\"" "}"
+        message = "{ \"IP\":" + "\"" + self.IP + "\"" + ', "port":' + "\"" + self.port + "\"" + ', "type":"HELLO_MSG"' + ', "bidirectionalNeighbors":' +  "\"" + str(self.bidirectionalNeighbors) +  "\"" + ', "lastPacketReceiverSentToSender":' + "\"" + str(self.lastPacketReceiverSentToSender) + "\"" "}"
         return message
 
 class Node:
     def __init__(self, host, index):
         self.index = index
         self.host = host
+        self.requested = []
         self.allNeighbors = []
         self.bidirectionalNeighbors = []
-        self.unidirectionalNeighbors = []
         self.udpSocket = UdpSocket()
         self.udpSocket.bindTo(host.port)
         self.start_time = 0
@@ -143,7 +136,7 @@ class Node:
                         continue
             my_mutex.release()
             #   recieve all the time    ###############################
-            # print("IN RECEIVE")
+
             try:
                 readable, writable, exceptional = select.select([self.udpSocket.socket], [], [], 0.2)
                 for s in readable:
@@ -157,63 +150,50 @@ class Node:
                         receivedPort = received["port"]
                         recentlyHeard = []
                         recentlyHeard.append(received["bidirectionalNeighbors"])
-                        recentlyHeard.append(received["unidirectionalNeighbors"])
-                        if self.findInList(self.allNeighbors, receivedPort) != None:
+
+                        #   check if in bidirectional, update time
+                        if self.inList(self.bidirectionalNeighbors, receivedPort):
+                            neighbor = self.bidirectionalNeighbors[self.findInList(self.bidirectionalNeighbors, receivedPort)]
+                            neighbor.updateTime()
+
+                        if self.inList(self.requested, receivedPort):
+                            neighbor = self.requested[self.findInList(self.requested, receivedPort)]
+                            neighbor.updateTime()
+                        
+                        if self.inList(self.allNeighbors, receivedPort):
                             neighborInAllNeighbors = self.allNeighbors[self.findInList(self.allNeighbors, receivedPort)]
-                            neighborInAllNeighbors.updateTime()
                             neighborInAllNeighbors.packetsReceievedFromThisNeighbor += 1
+                        else:
+                            newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
+                            newNeighbor.packetsReceievedFromThisNeighbor += 1
+                            self.allNeighbors.append(newNeighbor)
+                        #   if full, do nothing
+                        if len(self.bidirectionalNeighbors) == 3:
+                            continue
 
                         # change neighbours #######################################
-                        #   1.
-                        if self.inList(self.unidirectionalNeighbors, receivedPort):
-                            if self.inListNeighbor(recentlyHeard):
-                                # print("1")
-                                self.unidirectionalNeighbors, self.bidirectionalNeighbors = self.moveFromTo(self.unidirectionalNeighbors, self.bidirectionalNeighbors, receivedPort)
-                                neighbor = self.bidirectionalNeighbors[self.findInList(self.bidirectionalNeighbors, receivedPort)]
-                                neighbor.updateTime()
-                                neighbor.unidirectionalNeighbors = received["unidirectionalNeighbors"]
-                                neighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
+                        if self.inListNeighbor(recentlyHeard):
+                            newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
+                            newNeighbor.packetsReceievedFromThisNeighbor += 1
+                            newNeighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
+                            newNeighbor.updateTime()
+                            self.bidirectionalNeighbors.append(newNeighbor)
+                            if not self.inList(self.allNeighbors, receivedPort):
+                                newNeighbor.timeBecameBi = time.time()
+                                self.allNeighbors.append(newNeighbor)
+                            else:
                                 if neighborInAllNeighbors.timeBecameBi == 0:
                                     neighborInAllNeighbors.timeBecameBi = time.time()
-
-                        #   2.
-                        elif self.inList(self.bidirectionalNeighbors, receivedPort):
-                            if not self.inListNeighbor(recentlyHeard):
-                                # print("2")
-                                self.bidirectionalNeighbors, self.unidirectionalNeighbors = self.moveFromTo(self.bidirectionalNeighbors, self.unidirectionalNeighbors, receivedPort)
-                                neighbor = self.unidirectionalNeighbors[self.findInList(self.unidirectionalNeighbors, receivedPort)]
-                                neighbor.updateTime()
-                                neighborInAllNeighbors.updateAvailableTime()
-                                neighbor.unidirectionalNeighbors = received["unidirectionalNeighbors"]
-                                neighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
-
+                        
                         else:
-                            #   3.
-                            if self.inListNeighbor(recentlyHeard):
-                                # print("3", self.bidirectionalNeighbors)
-                                newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
-                                newNeighbor.packetsReceievedFromThisNeighbor += 1
-                                newNeighbor.unidirectionalNeighbors = received["unidirectionalNeighbors"]
-                                newNeighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
-                                newNeighbor.updateTime()
-                                self.bidirectionalNeighbors.append(newNeighbor)
-                                if self.findInList(self.allNeighbors, receivedPort) == None:
-                                    newNeighbor.timeBecameBi = time.time()
-                                    self.allNeighbors.append(newNeighbor)
-                                else:
-                                    if neighborInAllNeighbors.timeBecameBi == 0:
-                                        neighborInAllNeighbors.timeBecameBi = time.time()
-                            #   4.
-                            else:
-                                # print("4")
-                                newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
-                                newNeighbor.packetsReceievedFromThisNeighbor += 1
-                                newNeighbor.updateTime()
-                                newNeighbor.unidirectionalNeighbors = received["unidirectionalNeighbors"]
-                                newNeighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
-                                self.unidirectionalNeighbors.append(newNeighbor)
-                                if self.findInList(self.allNeighbors, receivedPort) == None:
-                                    self.allNeighbors.append(newNeighbor)
+                            newNeighbor = NeighborsInformation(Host(received["IP"], receivedPort))
+                            newNeighbor.packetsReceievedFromThisNeighbor += 1
+                            newNeighbor.updateTime()
+                            newNeighbor.bidirectionalNeighbors = received["bidirectionalNeighbors"]
+                            self.requested.append(newNeighbor)
+                            if not self.inList(self.allNeighbors, receivedPort):
+                                self.allNeighbors.append(newNeighbor)
+
                         # print(received)
             except BlockingIOError:
                 pass
@@ -225,42 +205,33 @@ class Node:
                     neighborInAllNeighbors = self.allNeighbors[self.findInList(self.allNeighbors, neighbor.host.port)]
                     neighborInAllNeighbors.updateAvailableTime()
 
-            for neighbor in self.unidirectionalNeighbors:
+            for neighbor in self.requested:   #   ali inam har 8 sanie ye bar avaz konim?
                 if time.time() - neighbor.timeOfLastReceivedHello >= 8:
-                    self.unidirectionalNeighbors.remove(neighbor)
+                    self.requested.remove(neighbor)
 
             #   send message every second   ###########################
-            # print("IN SEND")
             if time.time() - self.start_time >= 2 or firstTime:
                 #   check if has enough bi neighbors
-                # if len(self.bidirectionalNeighbors) < 3:    #???????????????
-                counter = 0
-                #   if not send hello to enough new neighbors mutually ????
-                # my_mutex.acquire()
-                while (len(self.bidirectionalNeighbors) + len(self.unidirectionalNeighbors)) < 3:
-                    rand = random.randint(0, 5)
-                    if self.index-1 == rand or self.inList(self.unidirectionalNeighbors, hosts[rand].port) or self.inList(self.bidirectionalNeighbors, hosts[rand].port):
+                if len(self.bidirectionalNeighbors) < 3:    #???????????????
+                    rand = random.randint(0, 50)%6  #   ali khate baadi check konim age too requested hash bood yeki dge peyda kone??
+                    if self.index-1 == rand or self.inList(self.requested, hosts[rand].port) or self.inList(self.bidirectionalNeighbors, hosts[rand].port):
                         continue
                     tempNeighbor = NeighborsInformation(hosts[rand])
-                    if self.findInList(self.allNeighbors, hosts[rand].port) == None:
+                    if not self.inList(self.allNeighbors, hosts[rand].port):
                         self.allNeighbors.append(tempNeighbor)
-                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, self.unidirectionalNeighbors, tempNeighbor.timeOfLastReceivedHello)
+                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, tempNeighbor.timeOfLastReceivedHello)
                     self.udpSocket.sendTo(message.toJson(), tempNeighbor.host)
                     self.allNeighbors[self.findInList(self.allNeighbors, tempNeighbor.host.port)].packetsWereSentToThisNeighbor += 1
-                    counter += 1
-                    # if (len(self.bidirectionalNeighbors) + len(self.unidirectionalNeighbors) + counter) < 3:
-                    #     continue
-                    break
-                # my_mutex.release()
 
+                #   ali be request ha ham ersal mikonim dge??
                 #   send Hello to unidirectional neighbors
-                for node in self.unidirectionalNeighbors:
-                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, self.unidirectionalNeighbors, node.timeOfLastReceivedHello)
+                for node in self.requested:
+                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, node.timeOfLastReceivedHello)
                     self.udpSocket.sendTo(message.toJson(), node.host)
                     self.allNeighbors[self.findInList(self.allNeighbors, node.host.port)].packetsWereSentToThisNeighbor += 1
                 #   send Hello to bidirectional neighbors
                 for node in self.bidirectionalNeighbors:
-                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, self.unidirectionalNeighbors, node.timeOfLastReceivedHello)
+                    message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirectionalNeighbors, node.timeOfLastReceivedHello)
                     self.udpSocket.sendTo(message.toJson(), node.host)
                     self.allNeighbors[self.findInList(self.allNeighbors, node.host.port)].packetsWereSentToThisNeighbor += 1
                 self.start_time = time.time()
@@ -278,10 +249,6 @@ class Node:
         return False
 
     def inListNeighbor(self, li):
-        res = li[1].strip('][').split(', ') #   convert from string to list
-        for port in res:
-            if ("'" + self.host.port  + "'") == port:
-                return True
         res = li[0].strip('][').split(', ')
         for port in res:
             if ("'" + self.host.port  + "'") == port:
@@ -311,24 +278,32 @@ def writeJsonFile():
                 data_.append(i.allTheTimeNeighborWasAvailable/300)
             data2.append(data_)
 
-        data3 = []
-        for node in nodes:
-            data_ = []
-            data_.append("node with port " + node.host.port + " has these bidirectional neighbors")
-            for i in node.bidirectionalNeighbors:
-                data_.append("port " + i.host.port + " has these bidiectional neighbors " + i.bidirectionalNeighbors)
-                data_.append("port " + i.host.port + " has these unidiectional neighbors " + i.unidirectionalNeighbors)
-            data3.append(data_)
+        # data3 = []
+        # for node in nodes:
+        #     data_ = []
+        #     data_.append("node with port " + node.host.port + " has these bidirectional neighbors")
+        #     for i in node.bidirectionalNeighbors:
+        #         n = None
+        #         for n in nodes:
+        #             if n.host.port == i.host.port:
+        #                 break
+        #         data_.append("port " + i.host.port + " has these bidiectional neighbors " + i.bidirectionalNeighbors)
+        #         data_.append("port " + i.host.port + " has these unidiectional neighbors " + str(n.requested))
+        #     data3.append(data_)
 
-        data4 = []
-        for node in nodes:
-            data_ = []
-            data_.append(["node with port " + node.host.port + " has these unidirectional neighbors"])
-            for i in node.unidirectionalNeighbors:
-                print("***")
-                data_.append("port " + i.host.port + " has these bidiectional neighbors " + i.bidirectionalNeighbors)
-                data_.append("port " + i.host.port + " has these unidiectional neighbors " + i.unidirectionalNeighbors)
-            data4.append(data_)
+        # data4 = []
+        # for node in nodes:
+        #     data_ = []
+        #     data_.append(["node with port " + node.host.port + " has these unidirectional neighbors"])
+        #     for i in node.requested:
+        #         n = None
+        #         for n in nodes:
+        #             if n.host.port == i.host.port:
+        #                 break
+        #         print("***")
+        #         data_.append("port " + i.host.port + " has these bidiectional neighbors " + i.bidirectionalNeighbors)
+        #         data_.append("port " + i.host.port + " has these unidiectional neighbors " + str(n.requested))
+        #     data4.append(data_)
 
         counter = 0
         for node in nodes:
@@ -337,8 +312,8 @@ def writeJsonFile():
                 print(data2[counter])
                 json.dump(data[counter], f, ensure_ascii=False, indent=4)
                 json.dump(data2[counter], f, ensure_ascii=False, indent=4)
-                json.dump(data3[counter], f, ensure_ascii=False, indent=4)
-                json.dump(data4[counter], f, ensure_ascii=False, indent=4)
+                # json.dump(data3[counter], f, ensure_ascii=False, indent=4)
+                # json.dump(data4[counter], f, ensure_ascii=False, indent=4)
                 counter += 1
 
 def initialize():
