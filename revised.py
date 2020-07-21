@@ -174,7 +174,8 @@ class Node:
                 self.findInList(self.bidirNeighbors, senderPort).updateTime()
                 if not self.isInList(self.allNeighbors, senderPort):
                     neighbor = NeighborsInformation(Host(received["IP"], senderPort))
-                    neighbor.packetRecvCount = 1
+                    if self.isInBidirList(senderBidirNeighbors):
+                        neighbor.packetRecvCount = 1
                     neighbor.timeBecameBi = time.time()
                     self.allNeighbors.append(neighbor)
                 else:
