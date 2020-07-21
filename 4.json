@@ -1,0 +1,21 @@
+"allTimeNeighbours:"[
+    "IP: , port: 8082, packetRecvCount: 30, packetSentCount: 36",
+    "IP: , port: 8080, packetRecvCount: 20, packetSentCount: 22",
+    "IP: , port: 8085, packetRecvCount: 55, packetSentCount: 50",
+    "IP: , port: 8083, packetRecvCount: 31, packetSentCount: 30",
+    "IP: , port: 8081, packetRecvCount: 8, packetSentCount: 8"
+]"bidirNeighbors:"[
+    "8082"
+]"availability:"[
+    0.6109340135256449,
+    0.24598631620407105,
+    0.6460150901476542,
+    0.48539979378382364,
+    0.11918996969858806
+]"Topology:""bidir Neighbors"[
+    "8082 : bidirNeighbors: ['8080', '8083', '8084']"
+]"\nUidirectional Neighbors"[
+    "8083 : bidirNeighbors: ['8082', '8080']",
+    "8080 : bidirNeighbors: ['8082', '8083']",
+    "8085 : bidirNeighbors: []"
+]
