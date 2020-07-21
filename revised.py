@@ -9,7 +9,7 @@ import copy
 
 NODES_COUNT = 6
 NEIGHBOR_COUNT = 3
-RUN_TIME = 300
+RUN_TIME = 5
 TIME_TO_REMOVE_A_NEIGHBOR = 8
 TIME_TO_SEND_A_MESSAGE = 2
 SLEEP_DURATION = 20
@@ -21,7 +21,6 @@ sockets = []
 ports = []
 hosts = []
 isOff = []
-mutexLock = threading.Lock()
 lastTimeNodeWentOff = 0
 start = time.time()
 
@@ -94,8 +93,6 @@ class Node:
         self.udpSocket = UdpSocket()
         self.udpSocket.bindTo(host.port)
         self.sendTime = 0
-        self.isOff = False
-        self.timeOff = 0
         thread = threading.Thread(target=self.handler, args=())
         thread.start()
     
@@ -108,13 +105,9 @@ class Node:
                     self.findInList(self.allNeighbors, neighbor.host.port).updateAvailableTime()
                 break
 
-            if self.isOff:
-                if time.time() - self.timeOff >= SLEEP_DURATION:
-                    self.isOff = False
-                else:
-                    continue
+            if isOff[self.index] != 0:
+                continue
 
-            self.turnOfANode()
             self.receive()
 
             for neighbor in self.bidirNeighbors:
@@ -140,7 +133,7 @@ class Node:
         if len(self.bidirNeighbors) == NEIGHBOR_COUNT:
             return
 
-        rand = random.randint(1, NODES_COUNT)
+        rand = random.randint(0, NODES_COUNT-1)
         if not (self.index == rand or self.isInList(self.bidirNeighbors, hosts[rand].port)):
             if self.isInList(self.requested, hosts[rand].port):
                 self.findInList(self.requested, hosts[rand].port).updateTime()
@@ -192,22 +185,6 @@ class Node:
         
         except BlockingIOError:
             pass
-    
-    def turnOfANode(self):
-        global lastTimeNodeWentOff, mutexLock
-        mutexLock.acquire()
-        if time.time() - lastTimeNodeWentOff >= SLEEP_INTERVAL:
-            while(True):
-                print("HEREE", self.index, lastTimeNodeWentOff)
-                try:
-                    rand = random.randint(0, 5)
-                    nodes[rand].timeOff = time.time()
-                    nodes[rand].isOff = True
-                    lastTimeNodeWentOff = time.time()
-                    break
-                except IndexError:
-                    continue
-        mutexLock.release()
 
     def findInList(self, list, port):
         for i in range (0, len(list)):
@@ -281,20 +258,29 @@ def writeJsonFile():
                 counter += 1
 
 def initialize():
-    
+    global lastTimeNodeWentOff
     for i in range(0,NODES_COUNT):
-        nodes.append(str(i + 8080))
-        isOff.append(False)
-    
+        ports.append(str(i + 8080))
+        isOff.append(0)
+        
     for port in ports:
         hosts.append(Host("", port))
-    
-    counter = 1
+        
+    counter = 0
     for host in hosts:
         nodes.append(Node(host, counter))
         counter += 1
-    
+
     while time.time() - start < RUN_TIME + 1:
+        tempTime = time.time()
+        for i in range(0,NODES_COUNT):
+            if isOff[i] != 0 and tempTime - isOff[i] >= SLEEP_DURATION:
+                isOff[i] = 0
+
+        if tempTime - lastTimeNodeWentOff >= SLEEP_INTERVAL:
+            randNode = random.randint(0, NODES_COUNT - 1)
+            isOff[randNode] = tempTime
+            lastTimeNodeWentOff = tempTime
         continue
     
 initialize()
