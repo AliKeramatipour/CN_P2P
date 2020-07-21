@@ -9,7 +9,7 @@ import copy
 
 NODES_COUNT = 6
 NEIGHBOR_COUNT = 3
-RUN_TIME = 30
+RUN_TIME = 100
 TIME_TO_REMOVE_A_NEIGHBOR = 8
 TIME_TO_SEND_A_MESSAGE = 2
 SLEEP_DURATION = 20
@@ -161,6 +161,7 @@ class Node:
             if self.isInList(self.bidirNeighbors, senderPort):
                 self.findInList(self.bidirNeighbors, senderPort).updateTime()
                 self.findInList(self.allNeighbors, senderPort).packetRecvCount += 1
+                self.findInList(self.bidirNeighbors, senderPort).bidirNeighbors = received["bidirNeighbors"]
                 return
 
             if len(self.bidirNeighbors) == NEIGHBOR_COUNT:
@@ -168,10 +169,12 @@ class Node:
 
             if self.isInList(self.requested, senderPort):
                 self.findInList(self.requested, senderPort).updateTime()
+                self.findInList(self.requested, senderPort).bidirNeighbors = received["bidirNeighbors"]
 
             if self.isInList(self.requested, senderPort):
                 self.requested, self.bidirNeighbors = self.moveFromTo(self.requested, self.bidirNeighbors, senderPort)
                 self.findInList(self.bidirNeighbors, senderPort).updateTime()
+                self.findInList(self.bidirNeighbors, senderPort).bidirNeighbors = received["bidirNeighbors"]
                 if not self.isInList(self.allNeighbors, senderPort):
                     neighbor = NeighborsInformation(Host(received["IP"], senderPort))
                     if self.isInBidirList(senderBidirNeighbors):
@@ -184,6 +187,7 @@ class Node:
             else:
                 newNeighbor = NeighborsInformation(Host(received["IP"], senderPort))
                 newNeighbor.updateTime()
+                newNeighbor.bidirNeighbors = received["bidirNeighbors"]
                 self.requested.append(newNeighbor)
         
         except BlockingIOError:
@@ -242,21 +246,35 @@ def writeJsonFile():
         for node in nodes:
             data_ = []
             for i in node.requested:
-                print(i)
-                data_.append(i.host.port)
+                for j in node.bidirNeighbors:
+                    if j.host.port == i.host.port:
+                        continue
+                data_.append(i.host.port + " : bidirNeighbors: " + str(i.bidirNeighbors))
             data4.append(data_)
+
+        data5 = []
+        for node in nodes:
+            data_ = []
+            for i in node.bidirNeighbors:
+                print(i)
+                data_.append(i.host.port + " : bidirNeighbors: " + str(i.bidirNeighbors))
+            data5.append(data_)
 
         counter = 0
         for node in nodes:
             fileName = str(node.index) + ".json"
             with open(fileName, 'w', encoding='utf-8') as f:
                 print(data2[counter])
+                json.dump("allTimeNeighbours:", f, ensure_ascii=False, indent=4)
                 json.dump(data[counter], f, ensure_ascii=False, indent=4)
+                json.dump("bidirNeighbors:", f, ensure_ascii=False, indent=4)
                 json.dump(data2[counter], f, ensure_ascii=False, indent=4)
+                json.dump("availability:", f, ensure_ascii=False, indent=4)
                 json.dump(data3[counter], f, ensure_ascii=False, indent=4)
+                json.dump("Topology:", f, ensure_ascii=False, indent=4)
                 json.dump("bidir Neighbors", f, ensure_ascii=False, indent=4)
-                json.dump(data2[counter], f, ensure_ascii=False, indent=4)
-                json.dump("Uidirectional Neighbors", f, ensure_ascii=False, indent=4)
+                json.dump(data5[counter], f, ensure_ascii=False, indent=4)
+                json.dump("\nUidirectional Neighbors", f, ensure_ascii=False, indent=4)
                 json.dump(data4[counter], f, ensure_ascii=False, indent=4)
                 counter += 1
 
