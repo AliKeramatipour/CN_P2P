@@ -9,7 +9,7 @@ import copy
 
 NODES_COUNT = 6
 NEIGHBOR_COUNT = 3
-RUN_TIME = 100
+RUN_TIME = 300
 TIME_TO_REMOVE_A_NEIGHBOR = 8
 TIME_TO_SEND_A_MESSAGE = 2
 SLEEP_DURATION = 20
@@ -166,10 +166,6 @@ class Node:
 
             if len(self.bidirNeighbors) == NEIGHBOR_COUNT:
                 return
-
-            if self.isInList(self.requested, senderPort):
-                self.findInList(self.requested, senderPort).updateTime()
-                self.findInList(self.requested, senderPort).bidirNeighbors = received["bidirNeighbors"]
 
             if self.isInList(self.requested, senderPort):
                 self.requested, self.bidirNeighbors = self.moveFromTo(self.requested, self.bidirNeighbors, senderPort)
