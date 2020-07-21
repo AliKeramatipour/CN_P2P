@@ -164,6 +164,9 @@ class Node:
                 self.findInList(self.bidirNeighbors, senderPort).bidirNeighbors = received["bidirNeighbors"]
                 return
 
+            if self.isInList(self.requested, senderPort):
+                self.findInList(self.requested, senderPort).bidirNeighbors = received["bidirNeighbors"]
+
             if len(self.bidirNeighbors) == NEIGHBOR_COUNT:
                 return
 
@@ -235,17 +238,14 @@ def writeJsonFile():
         for node in nodes:
             data_ = []
             for i in node.allNeighbors:
-                data_.append(i.reachableDuration/RUN_TIME)
+                data_.append(i.host.port + "    :   " +str(i.reachableDuration/RUN_TIME))
             data3.append(data_)
 
         data4 = []
         for node in nodes:
             data_ = []
             for i in node.requested:
-                for j in node.bidirNeighbors:
-                    if j.host.port == i.host.port:
-                        continue
-                data_.append(i.host.port + " : bidirNeighbors: " + str(i.bidirNeighbors))
+                data_.append(i.host.port + " has these bidirNeighbors: " + str(i.bidirNeighbors))
             data4.append(data_)
 
         data5 = []
@@ -253,7 +253,7 @@ def writeJsonFile():
             data_ = []
             for i in node.bidirNeighbors:
                 print(i)
-                data_.append(i.host.port + " : bidirNeighbors: " + str(i.bidirNeighbors))
+                data_.append(i.host.port + " has these bidirNeighbors: " + str(i.bidirNeighbors))
             data5.append(data_)
 
         counter = 0
@@ -267,10 +267,9 @@ def writeJsonFile():
                 json.dump(data2[counter], f, ensure_ascii=False, indent=4)
                 json.dump("availability:", f, ensure_ascii=False, indent=4)
                 json.dump(data3[counter], f, ensure_ascii=False, indent=4)
-                json.dump("Topology:", f, ensure_ascii=False, indent=4)
-                json.dump("bidir Neighbors", f, ensure_ascii=False, indent=4)
+                json.dump("Topology:    bidir Neighbors:", f, ensure_ascii=False, indent=4)
                 json.dump(data5[counter], f, ensure_ascii=False, indent=4)
-                json.dump("\nUidirectional Neighbors", f, ensure_ascii=False, indent=4)
+                json.dump("Unidir Neighbors:", f, ensure_ascii=False, indent=4)
                 json.dump(data4[counter], f, ensure_ascii=False, indent=4)
                 counter += 1
 
