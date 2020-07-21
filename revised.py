@@ -97,7 +97,6 @@ class Node:
         thread.start()
     
     def handler(self):
-        print("Starting thread number",self.index)
         global start 
         self.sendTime = time.time()
         while(True):
@@ -129,7 +128,6 @@ class Node:
         for node in self.bidirNeighbors:
             message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirNeighbors, node.lastHelloRcvd)
             self.udpSocket.sendTo(message.toJson(), node.host)
-            print(self.host.port, " sending to ", node.host.port)
             self.findInList(self.allNeighbors, node.host.port).packetSentCount += 1
 
     
@@ -147,7 +145,6 @@ class Node:
         
         for node in self.requested:
             message = HelloMessage(self.index, self.host.IP, self.host.port, self.bidirNeighbors, node.lastHelloRcvd)
-            print(self.host.port, " is requesting to connect to ", node.host.port)
             self.udpSocket.sendTo(message.toJson(), node.host)
         
     def receive(self):
@@ -161,10 +158,7 @@ class Node:
             senderPort = received["port"]
             senderBidirNeighbors = received["bidirNeighbors"]
 
-            print(self.host.port," receiveing from ", senderPort)
-
             if self.isInList(self.bidirNeighbors, senderPort):
-                print(self.host.port," updating time msg recvd from ", senderPort)
                 self.findInList(self.bidirNeighbors, senderPort).updateTime()
                 self.findInList(self.allNeighbors, senderPort).packetRecvCount += 1
                 return
@@ -176,7 +170,6 @@ class Node:
                 self.findInList(self.requested, senderPort).updateTime()
 
             if self.isInList(self.requested, senderPort):
-                print(self.host.port," moving ", senderPort, " from requested to bidirNeighbors")
                 self.requested, self.bidirNeighbors = self.moveFromTo(self.requested, self.bidirNeighbors, senderPort)
                 self.findInList(self.bidirNeighbors, senderPort).updateTime()
                 if not self.isInList(self.allNeighbors, senderPort):
@@ -188,7 +181,6 @@ class Node:
                     neighbor = self.findInList(self.allNeighbors, senderPort)
                     neighbor.timeBecameBi = time.time()
             else:
-                print(self.host.port," adding ", senderPort, " to requested list")
                 newNeighbor = NeighborsInformation(Host(received["IP"], senderPort))
                 newNeighbor.updateTime()
                 self.requested.append(newNeighbor)
@@ -286,12 +278,10 @@ def initialize():
         for i in range(0,NODES_COUNT):
             if isOff[i] != 0 and tempTime - isOff[i] >= SLEEP_DURATION:
                 isOff[i] = 0
-                print("waking up thread ", i, " at time ", tempTime)
 
         if tempTime - lastTimeNodeWentOff >= SLEEP_INTERVAL:
             randNode = random.randint(0, NODES_COUNT - 1)
             isOff[randNode] = tempTime
-            print("making thread " , randNode, "sleep at time ", tempTime )
             lastTimeNodeWentOff = tempTime
         continue
     
